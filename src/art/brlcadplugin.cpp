@@ -142,9 +142,9 @@ brlcad_hit(struct application* ap, struct partition* PartHeadp, struct seg* UNUS
     // fprintf(output, "names: %s | %s\n", (const char*)ap->a_uptr, pp->pt_regionp->reg_name);
     // fflush(output);
 
-    if (!BU_STR_EQUAL((const char*)ap->a_uptr, pp->pt_regionp->reg_name)) {
+    /*if (!BU_STR_EQUAL((const char*)ap->a_uptr, pp->pt_regionp->reg_name)) {
 	return 0;
-    }
+    }*/
 
     /* construct the actual (entry) hit-point from the ray and the
      * distance to the intersection point (i.e., the 't' value).
@@ -202,12 +202,25 @@ BrlcadObject:: BrlcadObject(
     : asr::ProceduralObject(name, params)
 {
     this->ap = p_ap;
-    this->rtip = p_ap->a_rt_i;
+    this->name = new std::string(m_params.get_required<std::string>("object_path"));
+
+    char title[1024] = { 0 };
+    std::string db_file = m_params.get_required<std::string>("database_path");
+    this->rtip = rt_dirbuild(db_file.c_str(), title, sizeof(title));
+    if (rtip == RTI_NULL) {
+        RENDERER_LOG_INFO("building the database directory for [%s] FAILED\n", db_file);
+        bu_exit(BRLCAD_ERROR,"building the database directory for [%s] FAILED\n", db_file);
+    }
+    rt_gettree(p_ap->a_rt_i, this->name->c_str());
+    //printf("name: [%s]\n", name);
+    //this->rtip = rt_dirbuild();
+    //this->rtip = p_ap->a_rt_i;
+
     this->resources = p_resources;
     // VMOVE(this->min, ap->a_uvec);
     // VMOVE(this->max, ap->a_vvec);
 
-    this->name = new std::string(m_params.get_required<std::string>("object_path"));
+    
     VSET(min, m_params.get_required<double>("minX"), m_params.get_required<double>("minY"), m_params.get_required<double>("minZ"));
     VSET(max, m_params.get_required<double>("maxX"), m_params.get_required<double>("maxY"), m_params.get_required<double>("maxZ"));
 

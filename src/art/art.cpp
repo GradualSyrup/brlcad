@@ -369,12 +369,19 @@ int register_region(struct db_tree_state* tsp __attribute__((unused)),
 
     bu_log("ged: %i | min: %f %f %f | max: %f %f %f\n", ret, V3ARGS(min), V3ARGS(max));
 
+    // typecast our scene using the callback function 'data'
+    asr::Scene* scene = static_cast<asr::Scene*>(data);
+
     /*
       create object paramArray to pass to constructor
       NOTE: we will need to eventually match brl geometry to appleseed plugin
     */
-    renderer::ParamArray geometry_parameters = asr::ParamArray()
-	.insert("database_path", name)
+
+    std::string funny_parameter = scene->get_parameters().get_required<std::string>("database_path");
+    printf("database_path = %s\n",funny_parameter);
+
+    asr::ParamArray geometry_parameters = asr::ParamArray()
+	.insert("database_path", scene->get_parameters().get<std::string>("database_path"))
 	.insert("object_path", name_full)
 	.insert("object_count", objc)
 	.insert("minX", min[X])
@@ -390,9 +397,6 @@ int register_region(struct db_tree_state* tsp __attribute__((unused)),
 	    name,
 	    geometry_parameters,
 	    &APP, resources});
-
-    // typecast our scene using the callback function 'data'
-    asr::Scene* scene = static_cast<asr::Scene*>(data);
 
     // create assembly for current object
     std::string assembly_name = std::string(name) + "_object_assembly";
@@ -666,7 +670,7 @@ do_ae(double azim, double elev)
 }
 
 
-asf::auto_release_ptr<asr::Project> build_project(const char* UNUSED(file), const char* UNUSED(objects))
+asf::auto_release_ptr<asr::Project> build_project(const char* file, const char* UNUSED(objects))
 {
     /* If user gave no sizing info at all, use 512 as default */
     struct bu_vls dimensions = BU_VLS_INIT_ZERO;
@@ -718,6 +722,8 @@ asf::auto_release_ptr<asr::Project> build_project(const char* UNUSED(file), cons
     struct db_tree_state state = rt_initial_tree_state;
     state.ts_dbip = APP.a_rt_i->rti_dbip;
     state.ts_resp = resources;
+
+    scene->get_parameters().insert("database_path", file);
 
     db_walk_tree(APP.a_rt_i->rti_dbip, objc, (const char**)objv, 1, &state, register_region, NULL, NULL, reinterpret_cast<void *>(scene.get()));
 
@@ -865,6 +871,8 @@ main(int argc, char **argv)
 {
     bu_setlinebuf(stdout);
     bu_setlinebuf(stderr);
+
+    printf(bu_getcwd(NULL,0));
 
     bu_log("%s%s%s%s\n",
 	   brlcad_ident("BRL-CAD Appleseed Ray Tracing (ART)"),
