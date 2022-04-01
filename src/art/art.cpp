@@ -336,7 +336,7 @@ namespace asr = renderer;
  * using either a disney shader with rgb color set on combination regions
  * or specified material OSL optical shader
  */
-int register_region(struct db_tree_state* tsp __attribute__((unused)),
+int register_region(struct db_tree_state* tsp,
 		    const struct db_full_path* pathp,
 		    const struct rt_comb_internal* combp,
 		    void* data)
@@ -362,7 +362,8 @@ int register_region(struct db_tree_state* tsp __attribute__((unused)),
 
     // get objects bounding box
     struct ged* gedp;
-    gedp = ged_open("db", APP.a_rt_i->rti_dbip->dbi_filename, 1);
+    gedp = ged_open("db", tsp->ts_dbip->dbi_filename, 1);
+    //gedp = ged_open("db", APP.a_rt_i->rti_dbip->dbi_filename, 1);
     point_t min;
     point_t max;
     int ret = rt_obj_bounds(gedp->ged_result_str, gedp->dbip, 1, (const char**)&name_full, 1, min, max);
@@ -378,7 +379,6 @@ int register_region(struct db_tree_state* tsp __attribute__((unused)),
     */
 
     std::string funny_parameter = scene->get_parameters().get_required<std::string>("database_path");
-    printf("database_path = %s\n",funny_parameter);
 
     asr::ParamArray geometry_parameters = asr::ParamArray()
 	.insert("database_path", scene->get_parameters().get<std::string>("database_path"))
@@ -422,12 +422,14 @@ int register_region(struct db_tree_state* tsp __attribute__((unused)),
     // extract material if set and check for shader in optical properties
     struct directory* dp1;
     char* mat_name = bu_vls_strdup(&combp->material);
-    dp1 = db_lookup(APP.a_rt_i->rti_dbip, mat_name, LOOKUP_QUIET);
+    dp1 = db_lookup(tsp->ts_dbip, mat_name, LOOKUP_QUIET);
+    //dp1 = db_lookup(APP.a_rt_i->rti_dbip, mat_name, LOOKUP_QUIET);
     struct bu_vls m = BU_VLS_INIT_ZERO;
     struct rt_db_internal intern;
     struct rt_material_internal* material_ip;
     if (dp1 != RT_DIR_NULL) {
-	if (rt_db_get_internal(&intern, dp1, APP.a_rt_i->rti_dbip, NULL, &rt_uniresource) >= 0) {
+	if (rt_db_get_internal(&intern, dp1, tsp->ts_dbip, NULL, &rt_uniresource) >= 0) {
+    //if (rt_db_get_internal(&intern, dp1, APP.a_rt_i->rti_dbip, NULL, &rt_uniresource) >= 0) {
 	    if (intern.idb_minor_type == DB5_MINORTYPE_BRLCAD_MATERIAL) {
 		material_ip = (struct rt_material_internal*)intern.idb_ptr;
 		bu_vls_printf(&m, "%s", bu_avs_get(&material_ip->opticalProperties, "OSL"));
@@ -698,7 +700,7 @@ asf::auto_release_ptr<asr::Project> build_project(const char* file, const char* 
     project->configurations()
 	.get_by_name("final")->get_parameters()
 	.insert_path("uniform_pixel_renderer.samples", samples)
-	.insert_path("rendering_threads", "1"); /* multithreading not supported yet */
+	.insert_path("rendering_threads", "8"); /* multithreading not supported yet */
 
     project->configurations()
 	.get_by_name("interactive")->get_parameters()
@@ -720,12 +722,17 @@ asf::auto_release_ptr<asr::Project> build_project(const char* file, const char* 
 
     // walk the db to register all regions
     struct db_tree_state state = rt_initial_tree_state;
-    state.ts_dbip = APP.a_rt_i->rti_dbip;
+    struct db_i* dbip = db_open(file, DB_OPEN_READONLY);
+    state.ts_dbip = dbip;
+    //state.ts_dbip = APP.a_rt_i->rti_dbip;
     state.ts_resp = resources;
 
     scene->get_parameters().insert("database_path", file);
 
-    db_walk_tree(APP.a_rt_i->rti_dbip, objc, (const char**)objv, 1, &state, register_region, NULL, NULL, reinterpret_cast<void *>(scene.get()));
+    db_walk_tree(dbip, objc, (const char**)objv, 1, &state, register_region, NULL, NULL, reinterpret_cast<void*>(scene.get()));
+    //db_walk_tree(APP.a_rt_i->rti_dbip, objc, (const char**)objv, 1, &state, register_region, NULL, NULL, reinterpret_cast<void*>(scene.get()));
+
+
 
     //------------------------------------------------------------------------
     // Light
@@ -872,8 +879,6 @@ main(int argc, char **argv)
     bu_setlinebuf(stdout);
     bu_setlinebuf(stderr);
 
-    printf(bu_getcwd(NULL,0));
-
     bu_log("%s%s%s%s\n",
 	   brlcad_ident("BRL-CAD Appleseed Ray Tracing (ART)"),
 	   rt_version(),
@@ -980,6 +985,8 @@ main(int argc, char **argv)
     APP.a_miss = brlcad_miss;
 
     do_ae(azimuth, elevation);
+    rt_clean(rtip);
+    APP.a_rt_i = NULL;
     // RENDERER_LOG_INFO("View model: (%f, %f, %f)", eye_model[0], eye_model[2], -eye_model[1]);
 
     // Build the project.

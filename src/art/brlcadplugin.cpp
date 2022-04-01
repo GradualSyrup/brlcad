@@ -204,14 +204,22 @@ BrlcadObject:: BrlcadObject(
     this->ap = p_ap;
     this->name = new std::string(m_params.get_required<std::string>("object_path"));
 
-    char title[1024] = { 0 };
     std::string db_file = m_params.get_required<std::string>("database_path");
-    this->rtip = rt_dirbuild(db_file.c_str(), title, sizeof(title));
+    rtip = rt_dirbuild(db_file.c_str(), NULL, 0);
+    this->ap->a_rt_i = rtip;
     if (rtip == RTI_NULL) {
         RENDERER_LOG_INFO("building the database directory for [%s] FAILED\n", db_file);
         bu_exit(BRLCAD_ERROR,"building the database directory for [%s] FAILED\n", db_file);
     }
-    rt_gettree(p_ap->a_rt_i, this->name->c_str());
+
+    for (int ic = 0; ic < MAX_PSW; ic++) {
+        rt_init_resource(&p_resources[ic], ic, rtip);
+        RT_CK_RESOURCE(&p_resources[ic]);
+    }
+
+    rt_gettree(rtip, this->name->c_str());
+    if (rtip->needprep)
+        rt_prep_parallel(rtip, 1);
     //printf("name: [%s]\n", name);
     //this->rtip = rt_dirbuild();
     //this->rtip = p_ap->a_rt_i;
