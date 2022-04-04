@@ -378,8 +378,6 @@ int register_region(struct db_tree_state* tsp,
       NOTE: we will need to eventually match brl geometry to appleseed plugin
     */
 
-    std::string funny_parameter = scene->get_parameters().get_required<std::string>("database_path");
-
     asr::ParamArray geometry_parameters = asr::ParamArray()
 	.insert("database_path", scene->get_parameters().get<std::string>("database_path"))
 	.insert("object_path", name_full)

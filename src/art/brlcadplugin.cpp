@@ -142,10 +142,6 @@ brlcad_hit(struct application* ap, struct partition* PartHeadp, struct seg* UNUS
     // fprintf(output, "names: %s | %s\n", (const char*)ap->a_uptr, pp->pt_regionp->reg_name);
     // fflush(output);
 
-    /*if (!BU_STR_EQUAL((const char*)ap->a_uptr, pp->pt_regionp->reg_name)) {
-	return 0;
-    }*/
-
     /* construct the actual (entry) hit-point from the ray and the
      * distance to the intersection point (i.e., the 't' value).
      */
@@ -205,7 +201,7 @@ BrlcadObject:: BrlcadObject(
     this->name = new std::string(m_params.get_required<std::string>("object_path"));
 
     std::string db_file = m_params.get_required<std::string>("database_path");
-    rtip = rt_dirbuild(db_file.c_str(), NULL, 0);
+    this->rtip = rt_dirbuild(db_file.c_str(), NULL, 0);
     this->ap->a_rt_i = rtip;
     if (rtip == RTI_NULL) {
         RENDERER_LOG_INFO("building the database directory for [%s] FAILED\n", db_file);
@@ -325,6 +321,7 @@ BrlcadObject::intersect(
 {
     struct application app;
     app = *ap; /* struct copy */
+    app.a_rt_i = this->rtip;
     /* brlcad raytracing */
     int cpu = get_id();
     app.a_resource = &resources[cpu];
@@ -369,6 +366,7 @@ BrlcadObject::intersect(const asr::ShadingRay& ray) const
 {
     struct application app;
     app = *ap; /* struct copy */
+    app.a_rt_i = this->rtip;
     /* brlcad raytracing */
     int cpu = get_id();
     app.a_resource = &resources[cpu];
